@@ -7,7 +7,7 @@ const userSchema= new Schema({
             type: String,
             required: [true, "UserName Needed!!!"],
             unique: [true, "Username Need to be Unique!!!"],
-            lowercase: true,
+            lowercase: [true, "Username Must be in Lowercase!!!"],
             trim: true,
             index: true
         },

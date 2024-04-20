@@ -4,9 +4,10 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/AsyncHandler.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
+// This Function will generate Tokens from User Model and added Refresh Token to DB //
 const accessAndRefreshTokenGenerator= async(user)=>{
-    const accessToken= await user.generateAccessToken()
-    const refreshToken= await user.generateRefreshToken()
+    const accessToken= user.generateAccessToken()
+    const refreshToken= user.generateRefreshToken()
 
     user.refreshToken=refreshToken;
     await user.save({validateBeforeSave: false})
@@ -59,6 +60,7 @@ const userRegister= asyncHandler(async(req, res)=>{
     // Retrieve user after Register for more secure way
     const retrieveUserAfterRegister= await User.findById(createUser._id).select("-password, -refreshToken");
 
+    // Sending Response //
     if(retrieveUserAfterRegister){
         return res.status(201).json(new ApiResponse(200, retrieveUserAfterRegister, "New User Created Successfully"));
     }
@@ -76,18 +78,21 @@ const userLogin= asyncHandler(async(req, res)=>{
         throw new ApiError(400, "All Field must be Required!!!");
     }
 
+    // find user from db with username or email
     const existedUser= await User.findOne({$or: [{username}, {email}]});
 
     if(!existedUser){
         throw new ApiError(404, "No User Found, Please Register First!!!");
     }
 
+    // Comparing password with decoded password in DB
     const checkUserPassword= await existedUser.comparePassword(password);
 
     if(!checkUserPassword){
         throw new ApiError(401, "User Credential Not Match!!!");
     }
 
+    // Destructure Tokens from Token Generate Function //
     const {accessToken, refreshToken}= await accessAndRefreshTokenGenerator(existedUser);
 
     // Finding user with updated tokens //

@@ -6,13 +6,18 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
 // This Function will generate Tokens from User Model and added Refresh Token to DB //
 const accessAndRefreshTokenGenerator= async(user)=>{
-    const accessToken= user.generateAccessToken()
-    const refreshToken= user.generateRefreshToken()
-
-    user.refreshToken=refreshToken;
-    await user.save({validateBeforeSave: false})
-
-    return {accessToken, refreshToken}
+    try {
+        const accessToken= await user.generateAccessToken();
+        const refreshToken= await user.generateRefreshToken();
+    
+        user.refreshToken=refreshToken;
+        await user.save({validateBeforeSave: false})
+    
+        return {accessToken, refreshToken}
+    } 
+    catch (error) {
+        throw new ApiError(500, 'Something went wrong while generating referesh and access token');
+    }
 }
 
 // REGISTRATION //
@@ -120,7 +125,21 @@ const userLogin= asyncHandler(async(req, res)=>{
 
 // LOGOUT //
 const logoutUser= asyncHandler(async(req, res)=> {
+    // Find and remove DB refreshToken with undefined when login //
+    await User.findByIdAndUpdate(req.user._id, {$set: {refreshToken: undefined}}, {new: true})
 
+    // Cookie Options for Security //
+    const options= {
+        httpOnly: true,
+        secure: true
+    }
+
+    // Remove cookie and send response //
+    return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "User Logged Out!!!"))
 })
 
 export {userRegister, userLogin, logoutUser};

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { logoutUser, userLogin, userRegister } from "../controllers/user.controller.js";
+import { logoutUser, refreshToken, userLogin, userRegister } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
@@ -16,11 +16,14 @@ router.route('/register').post(
             name: 'cover', maxCount: 1
         }
     ]), 
-    userRegister) 
+    userRegister);
 
-router.route('/login').post(userLogin)
+router.route('/login').post(userLogin);
+
+// Refresh Token end point //
+router.route('refresh-token').post(refreshToken);
 
 // Secure Route //
-router.route('/logout').post(verifyJWT, logoutUser)
+router.route('/logout').post(verifyJWT, logoutUser);
 
 export default router;

@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/AsyncHandler.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import jwt from "jsonwebtoken";
 
 // This Function will generate Tokens from User Model and added Refresh Token to DB //
 const accessAndRefreshTokenGenerator= async(user)=>{
@@ -16,7 +17,7 @@ const accessAndRefreshTokenGenerator= async(user)=>{
         return {accessToken, refreshToken}
     } 
     catch (error) {
-        throw new ApiError(500, 'Something went wrong while generating referesh and access token');
+        throw new ApiError(500, 'Something went wrong while generating refresh and access token');
     }
 }
 
@@ -142,4 +143,38 @@ const logoutUser= asyncHandler(async(req, res)=> {
     .json(new ApiResponse(200, {}, "User Logged Out!!!"))
 })
 
-export {userRegister, userLogin, logoutUser};
+// Refresh and ReGenerate Access and Refresh Token //
+const refreshToken= asyncHandler(async(req, res)=>{
+    const incomingRefreshToken= req.cookies.refreshToken || req.body.refreshToken;
+
+    if(!incomingRefreshToken){
+        throw new ApiError(401, "unauthorized request");
+    }
+
+    try {
+        const decode= jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
+
+        const user= await User.findById(decode?._id);
+
+        if(!user){
+            throw new ApiError(401, "unauthorized request");
+        }
+
+        if(incomingRefreshToken !== user?.refreshToken){
+            throw new ApiError(401, "Refresh token is expired or used");
+        }
+
+        const {accessToken, refreshToken}= await accessAndRefreshTokenGenerator(user);
+
+        return res
+        .status(200)
+        .cookie('accessToken', accessToken, {httpOnly:true, secure:true})
+        .cookie('refreshToken', refreshToken, {httpOnly:true, secure:true})
+        .json(new ApiResponse(200, {accessToken, refreshToken}, "Token Refreshed!!!"))
+    }
+    catch (error) {
+        throw new ApiError(401, "unauthorized request");
+    }
+})
+
+export {userRegister, userLogin, logoutUser, refreshToken};

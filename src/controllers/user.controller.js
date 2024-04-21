@@ -257,11 +257,45 @@ const updateAvatar= asyncHandler(async(req, res)=> {
         {new: true}
     ).select("-password -refreshToken");
 
+    // Extracting Public_id and remove image from cloudinary server also //
     imageDeleteFromCloudinaryServer(req.user.avatar);
 
     return res
         .status(200)
         .json(new ApiResponse(200, user, "Avatar Updated"));
-})
+});
 
-export { userRegister, userLogin, logoutUser, refreshToken, resetPassword, getCurrentUser, updateUserInfo, updateAvatar };
+// Update User Cover Image //
+const updateCover=asyncHandler(async(req, res)=>{
+    const coverLocalPath= req.file?.path;
+
+    if(!coverLocalPath){
+        throw new ApiError(400, "Cover File Missing!!!");
+    }
+
+    // Upload New Cover on Cloudinary //
+    const newCover= await uploadOnCloudinary(coverLocalPath);
+
+    if(!newCover.url){
+        throw new ApiError(400, "Error Uploading Cover on Cloudinary");
+    };
+
+    const user= await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: {
+                cover: newCover.url
+            }
+        },
+        {new: true}
+    ).select("-password -refreshToken");
+
+    // Extracting Public_id and remove image from cloudinary server also //
+    imageDeleteFromCloudinaryServer(req.user.cover);
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {user: user}, "Cover Updated"));
+});
+
+export { userRegister, userLogin, logoutUser, refreshToken, resetPassword, getCurrentUser, updateUserInfo, updateAvatar, updateCover };

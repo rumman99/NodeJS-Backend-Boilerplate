@@ -4,6 +4,8 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/AsyncHandler.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import jwt from "jsonwebtoken";
+import { imageDeleteFromCloudinaryServer } from "../utils/imageDeleteFromCloudinaryServer.js";
+
 
 // This Function will generate Tokens from User Model and added Refresh Token to DB //
 const accessAndRefreshTokenGenerator= async(user)=>{
@@ -56,7 +58,7 @@ const userRegister= asyncHandler(async(req, res)=>{
 
     const cloudinaryUploadCover= await uploadOnCloudinary(coverLocalPath);
 
-    if(!cloudinaryUploadAvatar){
+    if(!cloudinaryUploadAvatar.url){
         throw new ApiError(400, "Avatar file is Required!!!")
     }
 
@@ -177,4 +179,89 @@ const refreshToken= asyncHandler(async(req, res)=>{
     }
 })
 
-export {userRegister, userLogin, logoutUser, refreshToken};
+// Reset User Password //
+const resetPassword= asyncHandler(async(req,res)=>{
+    const {oldPassword, newPassword}= req.body;
+
+    if(!oldPassword || !newPassword){
+        throw new ApiError(404, "Password field can't be empty!!!")
+    } 
+
+    const user= await User.findById(req.user?._id);
+
+    const comparePassword= await user.comparePassword(oldPassword);
+
+    if(!comparePassword){
+        throw new ApiError(400, "Invalid Old Password");
+    }
+
+    // Modify old password with new password
+    user.password= newPassword;
+
+    // sending new password to DB //
+    await user.save({validateBeforeSave: false});
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "Password Changed Successfully!!!"))
+});
+
+// Get Current Login User //
+const getCurrentUser= asyncHandler(async(req, res)=>{
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {user: req.user}, "LoggedIn User Retrieve Successfully"));
+});
+
+// Update User Information(fullName, email, username) //
+const updateUserInfo= asyncHandler(async(req, res)=> {
+    const {username, fullName, email}= req.body;
+
+    if(!username || !fullName || !email){
+        throw new ApiError(404, "Field Can't be Empty"); 
+    }
+
+    const user= await User.findByIdAndUpdate(
+        req.user?._id, 
+        {
+            $set: {
+                username, 
+                fullName:fullName, 
+                email
+            }
+        }, 
+        {new: true}
+    ).select("-password -refreshToken")
+
+    return res.status(200).json(new ApiResponse(200, {user:user}, "Update Successfully!!!"))
+});
+
+// Update User Avatar //
+const updateAvatar= asyncHandler(async(req, res)=> {
+    const avatarLocalPath= req.file?.path;
+    
+    if(!avatarLocalPath){
+        throw new ApiError(400, "Avatar File Missing!!!");
+    }
+
+    // Upload New image on Cloudinary //
+    const newAvatar= await uploadOnCloudinary(avatarLocalPath);
+
+    if(!newAvatar.url){
+        throw new ApiError(400, "Error Uploading Avatar on Cloudinary");
+    };
+
+    const user= await User.findByIdAndUpdate(
+        req.user?._id,
+        {$set: {avatar: newAvatar.url}},
+        {new: true}
+    ).select("-password -refreshToken");
+
+    imageDeleteFromCloudinaryServer(req.user.avatar);
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, user, "Avatar Updated"));
+})
+
+export { userRegister, userLogin, logoutUser, refreshToken, resetPassword, getCurrentUser, updateUserInfo, updateAvatar };

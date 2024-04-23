@@ -1,5 +1,6 @@
 import { deleteFromCloudinary } from "./cloudinary.js";
 
+// This Method will take image url and then extract image public_id from url, giving public_id to deleteFormCloudinary method for farther Deletion //
 export const imageDeleteFromCloudinaryServer= async(image_url)=>{
     // Split the URL by '/'
     const urlWIthoutSlash= image_url.split('/');

@@ -5,6 +5,7 @@ import { asyncHandler } from "../utils/AsyncHandler.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import jwt from "jsonwebtoken";
 import { imageDeleteFromCloudinaryServer } from "../utils/imageDeleteFromCloudinaryServer.js";
+import mongoose from "mongoose";
 
 
 // This Function will generate Tokens from User Model and added Refresh Token to DB //
@@ -129,7 +130,7 @@ const userLogin= asyncHandler(async(req, res)=>{
 // LOGOUT //
 const logoutUser= asyncHandler(async(req, res)=> {
     // Find and remove DB refreshToken with undefined when login //
-    await User.findByIdAndUpdate(req.user._id, {$set: {refreshToken: undefined}}, {new: true})
+    await User.findByIdAndUpdate(req.user._id, {$unset: {refreshToken: 1}}, {new: true})
 
     // Cookie Options for Security //
     const options= {
@@ -368,5 +369,58 @@ const userChannelProfile=asyncHandler(async(req, res)=> {
     .json(new ApiResponse(200, channel[0], "Channel Fetched Success!"))
 });
 
+// Get Watch History of User //
+const watchHistory= asyncHandler(async(req, res)=> {
+    const {_id} = req.user;
 
-export { userRegister, userLogin, logoutUser, refreshToken, resetPassword, getCurrentUser, updateUserInfo, updateAvatar, updateCover, userChannelProfile };
+    const user = await User.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId.createFromTime(_id)
+            }
+        },
+        {
+            $lookup: {
+                form: "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        fullName: 1,
+                                        email: 1,
+                                        username: 1,
+                                        avatar: 1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields: {
+                            owner: {
+                                $first: "$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ])
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, user[0].watchHistory, "Watch History Fetched!"))
+
+})
+
+
+export { userRegister, userLogin, logoutUser, refreshToken, resetPassword, getCurrentUser, updateUserInfo, updateAvatar, updateCover, userChannelProfile, watchHistory };

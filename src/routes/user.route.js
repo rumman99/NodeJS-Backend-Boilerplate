@@ -38,6 +38,6 @@ router.route('/update-cover').patch(verifyJWT, upload.single("cover"), updateCov
 
 router.route('/channel/:username').get(verifyJWT, userChannelProfile);
 
-router.route('watch-history').get(verifyJWT, watchHistory);
+router.route('/watch-history').get(verifyJWT, watchHistory);
 
 export default router;
